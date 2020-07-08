@@ -26,4 +26,4 @@ NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no 
 ```
 
 Este projeto é de autoria de Pedro Bertoleti. 
-Agradecimentos ao professor Marcelus Guirardello (ETEC - Bento Ribeiro) por toda a ajuda na codificação da comunicação LoRaWAN.
+Agradecimentos ao professor Marcelus Guirardello (ETEC - Bento Quirino - Campinas-SP) por toda a ajuda na codificação da comunicação LoRaWAN.
