@@ -25,6 +25,12 @@ NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no 
 //#define LMIC_USE_INTERRUPTS
 ```
 4) Você precisará da network session key, application session key (definidos por você ou pela operadora da ATC) e do Device Address (fornecido pela operadora em caráter experimental ou adquirido por meios oficiais). Substitua estas informações no arquivo LORAWAN_defs.h.
+Para obtenção das chaves e tudo mais em termos de conectividade 
+LoRaWAN, entre em contato com uma das empresas credenciadas pela ATC:
+ 
+https://iotopenlabs.io/home/catalogo-de-solucoes/conectividade-lorawan/
+
+
 
 Este projeto é de autoria de Pedro Bertoleti. 
 Agradecimentos ao professor Marcelus Guirardello (ETEC - Bento Quirino - Campinas-SP) por toda a ajuda na codificação da comunicação LoRaWAN.
