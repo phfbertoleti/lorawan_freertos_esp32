@@ -6,7 +6,7 @@ static const PROGMEM u1_t NWKSKEY[16] = {  }; //coloque aqui sua network session
 static const u1_t PROGMEM APPSKEY[16] = {  }; //coloque aqui sua application session key
 
 /* - Device Address */
-static const u4_t DEVADDR = 0xcecd7ccd;
+static const u4_t DEVADDR = 0x00000000; //coloque aqui seu device address
 
 /* - Tempo entre envios de pacotes LoRa */
 const unsigned TX_INTERVAL = 1800; //tempo (em segundos) entre duas transmissoes LoRaWAN
