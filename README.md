@@ -5,7 +5,7 @@ Este repositório contém um projeto de end-device LoRaWAN (ABP), utilizando com
 * Leitura periódica da pressão barométrica (hPa) e da temperatura ambiente (°C) medidos pelo sensor BMP180
 * Leitura periódica da tensão de bateria (V) e carga da bateria (0 .. 100%)
 * Envio periódico (30 em 30 minutos) das medições para o gateway LoRaWAN (o software embarcado já está preparado para funcionar com a operadora ATC)
-* Exibição das medições no display OLED 182x64 contido na placa de desenvolvimento.
+* Exibição das medições no display OLED 128x64 contido na placa de desenvolvimento.
 
 **IMPORTANTE:**
 1) Este projeto considera a tensão da bateria lida no GPIO37 (ADC1_1), onde a tensão é lida num divisor de tensão  (dois resistores de 220k / 0,25W). 
