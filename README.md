@@ -33,4 +33,7 @@ https://iotopenlabs.io/home/catalogo-de-solucoes/conectividade-lorawan/
 5) O circuito esquemático encontra-se na pasta "ckt_esquematico", tanto como figura como no formato Fritzing.
 
 Este projeto é de autoria de Pedro Bertoleti. 
-Agradecimentos ao professor Marcelus Guirardello (ETEC - Bento Quirino - Campinas-SP) por toda a ajuda na codificação da comunicação LoRaWAN.
+
+Agradecimentos as seguintes pessoas:
+* Professor Marcelus Guirardello (ETEC - Bento Quirino - Campinas-SP), por toda a ajuda na codificação da comunicação LoRaWAN.
+* Renan Tesch, por toda a ajuda na melhoria da rotina de leitura de tensão de bateria.
