@@ -1,3 +1,10 @@
+#include <driver/adc.h>
+#include <esp_adc_cal.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_err.h>
+#include <esp_log.h>
+
 /* Projeto: estação de medições (temperatura, pressão barométrica e nível de bateria) com LoRaWAN 
  *          (modo: ABP) usando FreeRTOS. Projeto já configurado para operar na rede LoRaWAN 
  *          da ATC / Everynet no Brasil.
@@ -13,8 +20,23 @@
  * 
  * IMPORTANTE:
  * 1) Este projeto considera a tensão da bateria lida no GPIO37 (ADC1_1), onde a tensão é lida num divisor de tensão 
- *    (dois resistores de 220k / 0,25W). 
- *    NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no máximo, 3,9V (quando em 11dB de atenuação), 
+ *    (resistor de 470k / 0,25W e resistor de 100k / 0,25W). 
+ * 
+ * VBAT -----------
+ *                |                               R1: resistor de 470k / 0,25W
+ *               ---                              R2: resistor de 100k / 0,25W
+ *                R1                              RL: impedância do ADC (calculado: 13M)
+ *               --- 
+ *                |       ADC1_1 (Vmax: 0.73V)
+ *                |---------
+ *                |        |
+ *               ---      --- 
+ *                R2       RL 
+ *               ---      --- 
+ *                |        |  
+ * GND ---------------------
+ * 
+ *    NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no máximo, 1,1V (0dB), 
  *    enquanto a tensão de bateria pode chegar a 4,2V.
  * 
  * 2) Esse projeto faz uso da biblioteca "MCCI LoRaWAN LMIC Library". 
@@ -109,6 +131,7 @@ QueueHandle_t xQueue_display;
 
 /* Variaveis e objetos globais */
 static osjob_t sendjob; //objeto para job de envio de dados via ABP
+esp_adc_cal_characteristics_t adc_cal; //Estrutura que contem as informacoes para calibracao
 
 /* Relação de tensão x carga da bateria */
 #define PONTOS_MAPEADOS_BATERIA   11
@@ -188,31 +211,72 @@ float le_pressao(void)
  */
 void configura_adc_bateria(void)
 {
-    /* Configura GPIO37 como entrada para o ADC.
-       Além disso, configura atenuação do ADC em 11dB para suportar 
-       tensões de até 3,9V */
-    analogSetPinAttenuation(GPIO_ADC_BATERIA, ADC_11db);
-    analogReadResolution(BITS_RESOLUCAO_ADC); 
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_1,ADC_ATTEN_DB_0);
+    
+    esp_adc_cal_value_t adc_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_0, ADC_WIDTH_BIT_12, 1100, &adc_cal);
+    
+    if (adc_type == ESP_ADC_CAL_VAL_EFUSE_VREF)
+    {
+        if (xSemaphoreTake(xSerial_semaphore, TEMPO_PARA_OBTER_SEMAFORO) == pdTRUE)
+        {
+            Serial.println("ADC CALV ref eFuse encontrado: ");
+            Serial.print(adc_cal.vref);
+            Serial.print("mV");
+            xSemaphoreGive(xSerial_semaphore);
+        }
+    }
+    else if (adc_type == ESP_ADC_CAL_VAL_EFUSE_TP)
+    {
+        if (xSemaphoreTake(xSerial_semaphore, TEMPO_PARA_OBTER_SEMAFORO) == pdTRUE)
+        {
+            Serial.println("ADC CAL Two Point eFuse encontrado");
+            xSemaphoreGive(xSerial_semaphore);
+        }
+    }
+    else
+    {
+        if (xSemaphoreTake(xSerial_semaphore, TEMPO_PARA_OBTER_SEMAFORO) == pdTRUE)
+        {  
+            Serial.println("ADC CAL Nada encontrado, utilizando Vref padrao: ");
+            Serial.print(adc_cal.vref);
+            Serial.print("mV");
+            xSemaphoreGive(xSerial_semaphore);
+        }
+    }
 }
 
-/* Função: configura ADC para leitura da tensão de bateria
+/* Função: le tensão da bateria
  * Parâmetros: nenhum
- * Retorno:  nenhum
+ * Retorno:  tensão da bateria (V)
  */
 float le_tensao_bateria(void)
 {
-    int leitura_adc_bateria = 0;
+    unsigned long leitura_adc_bateria = 0;
+    unsigned long soma_leitura_adc_bateria = 0;
     float tensao_bateria = 0.0;
-    float soma_tensao_bateria = 0.0;
+    float tensao_adc = 0.0;
     int i;
 
     for(i=0; i<NUMERO_LEITURAS_BATERIA; i++)
     {
-        leitura_adc_bateria = analogRead(GPIO_ADC_BATERIA);
-        soma_tensao_bateria = soma_tensao_bateria + MAX_TENSAO_ADC * ((float)leitura_adc_bateria / MAX_VALOR_ADC_BAT) * FATOR_DIVISOR_TENSAO_BAT;
+        leitura_adc_bateria = adc1_get_raw(ADC1_CHANNEL_1);
+        soma_leitura_adc_bateria = soma_leitura_adc_bateria + leitura_adc_bateria;
     }
 
-    tensao_bateria = soma_tensao_bateria / NUMERO_LEITURAS_BATERIA;
+    leitura_adc_bateria = soma_leitura_adc_bateria / NUMERO_LEITURAS_BATERIA;
+    tensao_adc = esp_adc_cal_raw_to_voltage(leitura_adc_bateria, &adc_cal);  //unidade: mV
+    tensao_adc = tensao_adc / 1000.0; //unidade: V
+
+    /*         bateria                 adc
+                  4.1V     -------     0.73V 
+           tensao_bateria  -------     tensao_adc  
+
+       tensao_bateria = tensao_adc*(4.1/0.73)
+    */
+
+    tensao_bateria = tensao_adc*(4.1/0.73);
+    
     return tensao_bateria;
 }
 
@@ -607,7 +671,7 @@ void task_formata_medicoes_display( void *pvParameters )
         xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, TEMPO_PARA_LER_FILAS);
 
         sprintf(tela_display.linha2, "T: %.1fC/P: %.1fkPa", temp_pressao.temperatura, (temp_pressao.pressao/1000));
-        sprintf(tela_display.linha3, "Bat: %.1fV", tensao_bateria);
+        sprintf(tela_display.linha3, "Bat: %.2fV", tensao_bateria);
         sprintf(tela_display.linha4, "-4-");
 
         xQueueSend(xQueue_display, (void *)&tela_display, portMAX_DELAY);
@@ -705,15 +769,16 @@ void task_envio_lorawan( void *pvParameters )
 /* Tarefa responsavel por ler a tensão da bateria */
 void task_bateria( void *pvParameters )
 {
-    float leitura_bateria;
-    
+    float tensao_bateria;
+        
     /* Configura ADC da bateria */
     configura_adc_bateria(); 
 
     while(1)
     {
-        leitura_bateria = le_tensao_bateria();
-        xQueueOverwrite(xQueue_bateria, (void *)&leitura_bateria);
+        /* Le o ADC considerando sua calibração */
+        tensao_bateria = le_tensao_bateria();
+        xQueueOverwrite(xQueue_bateria, (void *)&tensao_bateria);
         vTaskDelay( TEMPO_ENTRE_LEITURAS_BATERIA / portTICK_PERIOD_MS );
     }
 }
