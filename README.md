@@ -11,20 +11,6 @@ Este repositório contém um projeto de end-device LoRaWAN (ABP), utilizando com
 1) Este projeto considera a tensão da bateria lida no GPIO37 (ADC1_1), onde a tensão é lida num divisor de tensão 
   (resistor de 470k / 0,25W e resistor de 100k / 0,25W). 
  
- VBAT -----------
-                |                               R1: resistor de 470k / 0,25W
-               ---                              R2: resistor de 100k / 0,25W
-                R1                              RL: impedância do ADC (calculado: 13M)
-               --- 
-                |       ADC1_1 (Vmax: 0.73V)
-                |---------
-                |        |
-               ---      --- 
-                R2       RL 
-               ---      --- 
-                |        |  
- GND ---------------------
- 
 NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no máximo, 1,1V (0dB), 
 enquanto a tensão de bateria pode chegar a 4,2V.
  
