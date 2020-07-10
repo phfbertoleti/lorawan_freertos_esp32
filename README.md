@@ -8,8 +8,25 @@ Este repositório contém um projeto de end-device LoRaWAN (ABP), utilizando com
 * Exibição das medições no display OLED 128x64 contido na placa de desenvolvimento.
 
 **IMPORTANTE:**
-1) Este projeto considera a tensão da bateria lida no GPIO37 (ADC1_1), onde a tensão é lida num divisor de tensão  (dois resistores de 220k / 0,25W). 
-NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no máximo, 3,9V (quando em 11dB de atenuação), enquanto a tensão de bateria pode chegar a 4,2V.
+1) Este projeto considera a tensão da bateria lida no GPIO37 (ADC1_1), onde a tensão é lida num divisor de tensão 
+  (resistor de 470k / 0,25W e resistor de 100k / 0,25W). 
+ 
+ VBAT -----------
+                |                               R1: resistor de 470k / 0,25W
+               ---                              R2: resistor de 100k / 0,25W
+                R1                              RL: impedância do ADC (calculado: 13M)
+               --- 
+                |       ADC1_1 (Vmax: 0.73V)
+                |---------
+                |        |
+               ---      --- 
+                R2       RL 
+               ---      --- 
+                |        |  
+ GND ---------------------
+ 
+NÃO SE ESQUEÇA DE USAR O DIVISOR DE TENSÃO AQUI!! O ADC do ESP32 suporta, no máximo, 1,1V (0dB), 
+enquanto a tensão de bateria pode chegar a 4,2V.
  
 2) Esse projeto faz uso da biblioteca "MCCI LoRaWAN LMIC Library". Este projeto foi testado com a versão 2.3.2 da mesma.
 3) Antes de compilar, é preciso deixar o arquivo lmic_project_config.h (dentro na pasta da biblioteca: project_config/lmic_project_config.h) com o conteúdo conforme abaixo:
