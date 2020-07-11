@@ -1,6 +1,6 @@
 # Projeto - comunicação LoRaWAN, usando SX1276 e ESP32
 
-Este repositório contém um projeto de end-device LoRaWAN (ABP), preparado para se conectar a rede pública da ATC (American Tower). 
+Este repositório contém um projeto de end-device LoRaWAN (ABP), preparado para se conectar a rede pública da ATC (American Tower Corporation). 
 No quesito hardware, este projeto utiliza a placa de desenvolvimento Heltec WiFi LoRa v1 (alimentado a bateria ou via cabo USB) e sensor o BMP180 (pressão barométrica e temperatura ambiente). Esta placa de desenvolvimento conta com o SX1276 como rádio LoRa e o ESP32 como SoC.
 Todo o software embarcado é feito utilizando o FreeRTOS como sistema operacional embarcado. Esse projeto deve ser aberto e compilado na Arduino IDE. O projeto possui as seguintes finalidades:
 
