@@ -42,3 +42,4 @@ Este projeto é de autoria de Pedro Bertoleti.
 Agradecimentos as seguintes pessoas:
 * Professor Marcelus Guirardello (ETEC - Bento Quirino - Campinas-SP), por toda a ajuda na codificação da comunicação LoRaWAN.
 * Renan Tesch, por toda a ajuda na melhoria da rotina de leitura de tensão de bateria.
+* José Morais, por toda a ajuda com revisão de código e rotinas de watch dog.
