@@ -595,7 +595,7 @@ void setup()
                 "lorawan",
                 4096,   
                 NULL,
-                6,  
+                10,  
                 NULL );
                            
     xTaskCreate(task_mede_pressao_temperatura ,
@@ -762,7 +762,7 @@ void task_envio_lorawan( void *pvParameters )
 
         os_runloop_once();
 
-        vTaskDelay( 10 / portTICK_PERIOD_MS );
+        vTaskDelay( ( TickType_t )1 );
     }
 }
 
