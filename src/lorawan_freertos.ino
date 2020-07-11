@@ -4,6 +4,7 @@
 #include <freertos/task.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include <esp_task_wdt.h>
 
 /* Projeto: estação de medições (temperatura, pressão barométrica e nível de bateria) com LoRaWAN 
  *          (modo: ABP) usando FreeRTOS. Projeto já configurado para operar na rede LoRaWAN 
@@ -418,7 +419,7 @@ void onEvent (ev_t ev)
               Serial.println(F("Ack recebido"));
 
             /* Verifica se foram recebidos dados do gateway */  
-            if (LMIC.dataLen) 
+            if (LMIC.dataLen > 0) 
             {
                 Serial.println(F("Recebidos "));
                 Serial.println(LMIC.dataLen);
@@ -426,12 +427,9 @@ void onEvent (ev_t ev)
               
                 /* Como houve recepção de dados do gateway, os coloca
                    em um array para uso futuro. */
-                if (LMIC.dataLen == 1) 
-                {
-                    uint8_t dados_recebidos = LMIC.frame[LMIC.dataBeg + 0];
-                    Serial.print(F("Dados recebidos: "));
-                    Serial.write(dados_recebidos);
-                }
+                uint8_t dados_recebidos = LMIC.frame[LMIC.dataBeg + 0];
+                Serial.print(F("Dados recebidos: "));
+                Serial.write(dados_recebidos);
             }
 
             /* Devolve o controle do semáforo da serial */
@@ -472,12 +470,20 @@ void do_send(osjob_t* j)
     char carga_bateria;
     TDados_lorawan dados_lorawan;
     TTemp_pressao temp_pressao;
+    BaseType_t resultado_peek_fila;
 
     /* le temperatura e pressao */
-    xQueuePeek(xQueue_temp_pressao, (void *)&temp_pressao, portMAX_DELAY);
+    do{
+        resultado_peek_fila = xQueuePeek(xQueue_temp_pressao, (void *)&temp_pressao, TEMPO_PARA_LER_FILAS);
+        esp_task_wdt_reset();
+    }while(resultado_peek_fila != pdTRUE);
 
     /* le tensão e calcula carga da bateria */
-    xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, portMAX_DELAY);
+    do{
+        resultado_peek_fila = xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, TEMPO_PARA_LER_FILAS);
+        esp_task_wdt_reset();
+    }while(resultado_peek_fila != pdTRUE);
+    
     tensao_bateria_mult_10 = tensao_bateria*10.0;
     carga_bateria = calculo_carga_bateria(tensao_bateria);
 
@@ -510,6 +516,7 @@ void do_send(osjob_t* j)
             xSemaphoreGive(xSerial_semaphore);     
         }
     }
+    esp_task_wdt_reset();
 }
 
 
@@ -582,6 +589,12 @@ void setup()
         ESP.restart();  
     } 
 
+    /* Inicia o Task WDT com 5 segundos.
+       Como 5 segundos é muito maior que quaisquer outras temporizações usadas,
+       este tempo foi escolhido.
+    */
+    esp_task_wdt_init(5, true); 
+
     /* Agenda execução das tarefas */
     xTaskCreatePinnedToCore(task_oled,  
                            "oled", 
@@ -629,10 +642,18 @@ void loop()
 void task_oled( void *pvParameters )
 {
     TTela_display tela_display;
+
+    /* Habilita o monitoramento do Task WDT nesta tarefa */
+    esp_task_wdt_add(NULL); 
             
     while(1)
     {
-        xSemaphoreTake(xI2C_semaphore, portMAX_DELAY );
+        if ( xSemaphoreTake(xI2C_semaphore, TEMPO_PARA_OBTER_SEMAFORO ) != pdTRUE )
+        {
+            /* Alimenta WDT e tenta novamente */
+            esp_task_wdt_reset();
+            continue;
+        }
         
         if (xQueueReceive(xQueue_display, (void *)&tela_display, TEMPO_PARA_LER_FILAS) == pdTRUE) 
         {
@@ -649,7 +670,7 @@ void task_oled( void *pvParameters )
         }
 
         xSemaphoreGive(xI2C_semaphore);
-
+        esp_task_wdt_reset();
         vTaskDelay( TEMPO_REFRESH_DISPLAY / portTICK_PERIOD_MS ); 
     }
 }
@@ -660,13 +681,19 @@ void task_formata_medicoes_display( void *pvParameters )
 {
     TTemp_pressao temp_pressao;
     TTela_display tela_display;
+    BaseType_t resultado_envio_fila_display;
     float tensao_bateria;
 
     /* Tempo para comunciação I²C com display acontecer sem problemas */
     vTaskDelay( 1000 / portTICK_PERIOD_MS ); 
 
+    /* Habilita o monitoramento do Task WDT nesta tarefa */
+    esp_task_wdt_add(NULL); 
+
     while(1)
     {
+        esp_task_wdt_reset();
+        
         xQueuePeek(xQueue_temp_pressao, (void *)&temp_pressao, TEMPO_PARA_LER_FILAS);        
         xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, TEMPO_PARA_LER_FILAS);
 
@@ -674,8 +701,12 @@ void task_formata_medicoes_display( void *pvParameters )
         sprintf(tela_display.linha3, "Bat: %.2fV", tensao_bateria);
         sprintf(tela_display.linha4, "-4-");
 
-        xQueueSend(xQueue_display, (void *)&tela_display, portMAX_DELAY);
-
+        do 
+        {
+            resultado_envio_fila_display = xQueueSend(xQueue_display, (void *)&tela_display, TEMPO_PARA_INSERIR_FILAS);
+            esp_task_wdt_reset();
+        }while (resultado_envio_fila_display != pdTRUE);
+        
         vTaskDelay( 1000 / portTICK_PERIOD_MS );
     }
 }
@@ -686,9 +717,14 @@ void task_mede_pressao_temperatura( void *pvParameters )
     TTemp_pressao temp_pressao;
 
     vTaskDelay( 1000 / portTICK_PERIOD_MS ); 
+
+    /* Habilita o monitoramento do Task WDT nesta tarefa */
+    esp_task_wdt_add(NULL); 
   
     while(1)
     {
+        esp_task_wdt_reset();
+        
         if( xSemaphoreTake( xI2C_semaphore, TEMPO_PARA_OBTER_SEMAFORO ) == pdTRUE )
         {
             temp_pressao.temperatura = le_temperatura();
@@ -696,7 +732,7 @@ void task_mede_pressao_temperatura( void *pvParameters )
             xQueueOverwrite(xQueue_temp_pressao, (void *)&temp_pressao);
             xSemaphoreGive(xI2C_semaphore);
         }
-        
+                
         vTaskDelay( TEMPO_ENTRE_LEITURAS_BMP180 / portTICK_PERIOD_MS );
     }   
 }
@@ -751,8 +787,13 @@ void task_envio_lorawan( void *pvParameters )
     /* Inicializa temporização para envio LoRaWAN */
     timestamp_envio = millis();
 
+    /* Habilita o monitoramento do Task WDT nesta tarefa */
+    esp_task_wdt_add(NULL); 
+
     while(1)
     {
+        esp_task_wdt_reset();
+        
         /* Envia um pacote LoRaWAN de acordo com periodicidade definida em TX_INTERVAL */
         if (diferenca_tempo(timestamp_envio) >= TX_INTERVAL*1000)
         {
@@ -774,8 +815,13 @@ void task_bateria( void *pvParameters )
     /* Configura ADC da bateria */
     configura_adc_bateria(); 
 
+    /* Habilita o monitoramento do Task WDT nesta tarefa */
+    esp_task_wdt_add(NULL);
+
     while(1)
     {
+        esp_task_wdt_reset();
+        
         /* Le o ADC considerando sua calibração */
         tensao_bateria = le_tensao_bateria();
         xQueueOverwrite(xQueue_bateria, (void *)&tensao_bateria);
