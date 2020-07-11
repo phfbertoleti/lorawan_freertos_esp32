@@ -473,16 +473,22 @@ void do_send(osjob_t* j)
     BaseType_t resultado_peek_fila;
 
     /* le temperatura e pressao */
+    esp_task_wdt_reset();
+    
     do{
-        resultado_peek_fila = xQueuePeek(xQueue_temp_pressao, (void *)&temp_pressao, TEMPO_PARA_LER_FILAS);
-        esp_task_wdt_reset();
+        resultado_peek_fila = xQueuePeek(xQueue_temp_pressao, (void *)&temp_pressao, TEMPO_PARA_LER_FILAS);        
     }while(resultado_peek_fila != pdTRUE);
 
+    esp_task_wdt_reset();
+
     /* le tensão e calcula carga da bateria */
+    esp_task_wdt_reset();
+    
     do{
-        resultado_peek_fila = xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, TEMPO_PARA_LER_FILAS);
-        esp_task_wdt_reset();
+        resultado_peek_fila = xQueuePeek(xQueue_bateria, (void *)&tensao_bateria, TEMPO_PARA_LER_FILAS);        
     }while(resultado_peek_fila != pdTRUE);
+    
+    esp_task_wdt_reset();
     
     tensao_bateria_mult_10 = tensao_bateria*10.0;
     carga_bateria = calculo_carga_bateria(tensao_bateria);
@@ -589,11 +595,8 @@ void setup()
         ESP.restart();  
     } 
 
-    /* Inicia o Task WDT com 5 segundos.
-       Como 5 segundos é muito maior que quaisquer outras temporizações usadas,
-       este tempo foi escolhido.
-    */
-    esp_task_wdt_init(5, true); 
+    /* Inicia o Task WDT com 60 segundos */
+    esp_task_wdt_init(60, true); 
 
     /* Agenda execução das tarefas */
     xTaskCreatePinnedToCore(task_oled,  
@@ -701,11 +704,14 @@ void task_formata_medicoes_display( void *pvParameters )
         sprintf(tela_display.linha3, "Bat: %.2fV", tensao_bateria);
         sprintf(tela_display.linha4, "-4-");
 
+        esp_task_wdt_reset();
+        
         do 
         {
             resultado_envio_fila_display = xQueueSend(xQueue_display, (void *)&tela_display, TEMPO_PARA_INSERIR_FILAS);
-            esp_task_wdt_reset();
         }while (resultado_envio_fila_display != pdTRUE);
+
+        esp_task_wdt_reset();
         
         vTaskDelay( 1000 / portTICK_PERIOD_MS );
     }
